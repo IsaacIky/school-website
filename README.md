@@ -191,16 +191,55 @@ GET /audit-logs?entity=Campus&userId=…&page=1&pageSize=20
 
 ---
 
+## 🔑  Logging In
+
+After seeding the database the platform ships with a default admin account:
+
+| Field | Value |
+|-------|-------|
+| Email | `admin@university.ac.zw` |
+| Password | `Admin@123!` |
+
+> **Important:** Change these credentials immediately in any shared or production environment.
+> Override them at seed time with:
+> ```bash
+> SEED_ADMIN_EMAIL=you@youruni.ac.zw SEED_ADMIN_PASSWORD=Str0ng!Pass pnpm db:seed
+> ```
+
+### Login flow (web)
+
+1. Open `http://localhost:3000/login`
+2. Enter the email and password above
+3. On success the token is stored in `localStorage` and you are redirected to `/admin`
+4. All `/admin/*` pages redirect to `/login` if no valid token is found
+5. Click **🚪 Logout** in the sidebar to clear the token and return to `/login`
+
+### Login via API (curl / Postman)
+
+```bash
+curl -X POST http://localhost:4000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@university.ac.zw","password":"Admin@123!"}'
+# Response: { "accessToken": "<jwt>", "user": { ... } }
+
+# Use the token in subsequent requests:
+curl http://localhost:4000/api/v1/auth/me \
+  -H "Authorization: Bearer <jwt>"
+```
+
+---
+
 ## 🖥  Admin UI Pages
 
 | URL | Description |
 |-----|-------------|
 | `/` | Landing page |
-| `/admin` | Dashboard with navigation cards |
-| `/admin/campuses` | List & create campuses |
-| `/admin/faculties` | List & create faculties |
-| `/admin/departments` | List & create departments |
-| `/admin/programs` | List & create programs |
+| `/login` | Login page (email + password) |
+| `/admin` | Dashboard with navigation cards (🔒 requires login) |
+| `/admin/campuses` | List & create campuses (🔒) |
+| `/admin/faculties` | List & create faculties (🔒) |
+| `/admin/departments` | List & create departments (🔒) |
+| `/admin/programs` | List & create programs (🔒) |
 
 ---
 
@@ -278,15 +317,20 @@ apps/api/src/
 apps/web/src/
 ├── app/
 │   ├── layout.tsx | page.tsx
+│   ├── login/
+│   │   └── page.tsx          # login form → stores JWT → redirects to /admin
 │   └── admin/
-│       ├── layout.tsx (sidebar nav)
+│       ├── layout.tsx (sidebar nav + AdminGuard + LogoutButton)
 │       ├── page.tsx  (dashboard)
 │       ├── campuses/page.tsx
 │       ├── faculties/page.tsx
 │       ├── departments/page.tsx
 │       └── programs/page.tsx
-├── components/EntityPage.tsx     # reusable CRUD table + form
-└── lib/api.ts                    # fetch wrapper with JWT
+├── components/
+│   ├── AdminGuard.tsx         # client-side route guard (redirects to /login)
+│   ├── LogoutButton.tsx       # clears token + redirects to /login
+│   └── EntityPage.tsx         # reusable CRUD table + form
+└── lib/api.ts                 # fetch wrapper with JWT (includes login/logout helpers)
 
 packages/db/
 ├── prisma/
