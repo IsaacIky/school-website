@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent, useCallback } from 'react';
 import { api } from '@/lib/api';
 
 interface Field {
@@ -32,7 +32,7 @@ export default function EntityPage<T extends Record<string, unknown>>({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const data = await api.get<T[]>(`/${endpoint}`);
@@ -42,7 +42,7 @@ export default function EntityPage<T extends Record<string, unknown>>({
     } finally {
       setLoading(false);
     }
-  };
+  }, [endpoint]);
 
   useEffect(() => {
     load();

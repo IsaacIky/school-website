@@ -7,6 +7,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
+  // NOTE: Storing tokens in localStorage is convenient for a scaffold but
+  // is vulnerable to XSS. In production, consider httpOnly cookies instead.
   return localStorage.getItem('access_token');
 }
 
