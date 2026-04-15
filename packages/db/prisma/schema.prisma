@@ -1,0 +1,220 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// UNIVERSITY STRUCTURE
+// ─────────────────────────────────────────────
+
+model Campus {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  address     String?
+  phone       String?
+  email       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  faculties   Faculty[]
+  UserRoleAssignment UserRoleAssignment[]
+
+  @@map("campuses")
+}
+
+model Faculty {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campusId    String
+  campus      Campus   @relation(fields: [campusId], references: [id])
+
+  departments Department[]
+  UserRoleAssignment UserRoleAssignment[]
+
+  @@map("faculties")
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  facultyId   String
+  faculty     Faculty  @relation(fields: [facultyId], references: [id])
+
+  programs    Program[]
+  UserRoleAssignment UserRoleAssignment[]
+
+  @@map("departments")
+}
+
+model Program {
+  id            String   @id @default(uuid())
+  name          String
+  code          String   @unique
+  description   String?
+  durationYears Int      @default(4)
+  level         ProgramLevel @default(UNDERGRADUATE)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id])
+
+  UserRoleAssignment UserRoleAssignment[]
+
+  @@map("programs")
+}
+
+enum ProgramLevel {
+  CERTIFICATE
+  DIPLOMA
+  UNDERGRADUATE
+  POSTGRADUATE
+  DOCTORATE
+}
+
+// ─────────────────────────────────────────────
+// IDENTITY & USERS (single identity system)
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  phone         String?
+  avatarUrl     String?
+  isActive      Boolean   @default(true)
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  roleAssignments UserRoleAssignment[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// RBAC
+// ─────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)  // system roles cannot be deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+  userRoleAssignments UserRoleAssignment[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique   // e.g. "campus:create", "faculty:read"
+  description String?
+  resource    String             // e.g. "campus", "faculty"
+  action      String             // e.g. "create", "read", "update", "delete"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// Scoped role assignment: a user can hold a role globally or scoped to a specific entity
+model UserRoleAssignment {
+  id         String          @id @default(uuid())
+  userId     String
+  roleId     String
+  scopeType  RoleScopeType   @default(GLOBAL)
+  campusId   String?
+  facultyId  String?
+  departmentId String?
+  programId  String?
+  assignedBy String?         // userId of the admin who assigned
+  assignedAt DateTime        @default(now())
+  expiresAt  DateTime?
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role            @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  campus     Campus?         @relation(fields: [campusId], references: [id])
+  faculty    Faculty?        @relation(fields: [facultyId], references: [id])
+  department Department?     @relation(fields: [departmentId], references: [id])
+  program    Program?        @relation(fields: [programId], references: [id])
+
+  @@unique([userId, roleId, scopeType, campusId, facultyId, departmentId, programId])
+  @@map("user_role_assignments")
+}
+
+enum RoleScopeType {
+  GLOBAL
+  CAMPUS
+  FACULTY
+  DEPARTMENT
+  PROGRAM
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOGS
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String                        // e.g. "CREATE", "UPDATE", "DELETE"
+  entity     String                        // e.g. "Campus", "User"
+  entityId   String?
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
