@@ -267,6 +267,45 @@ POST /api/v1/rbac/assign
 }
 ```
 
+### Scope validation rules
+
+The `/rbac/assign` endpoint enforces the following consistency rules:
+
+| `scopeType` | Required field | Disallowed fields |
+|-------------|---------------|-------------------|
+| `GLOBAL` | — | campusId, facultyId, departmentId, programId |
+| `CAMPUS` | `campusId` | facultyId, departmentId, programId |
+| `FACULTY` | `facultyId` | campusId, departmentId, programId |
+| `DEPARTMENT` | `departmentId` | campusId, facultyId, programId |
+| `PROGRAM` | `programId` | campusId, facultyId, departmentId |
+
+### Permission-based enforcement (PermissionsGuard)
+
+Every protected resource endpoint carries a `@Permissions('resource:action')` decorator backed by `PermissionsGuard`. Access is granted when the authenticated user's role assignments satisfy **any** of the listed permissions:
+
+1. **GLOBAL scope** — the user's role includes the permission with `scopeType = GLOBAL` → always allowed.
+2. **Scoped** — the user's role includes the permission but with a narrower scope; the guard checks that the requested entity falls within that scope:
+
+| Resource | Scope hierarchy checked |
+|----------|------------------------|
+| `campus` | CAMPUS matches `campusId` |
+| `faculty` | FACULTY matches `facultyId`; CAMPUS matches `faculty.campusId` |
+| `department` | DEPARTMENT matches `departmentId`; FACULTY matches `dept.facultyId`; CAMPUS matches `dept.faculty.campusId` |
+| `program` | PROGRAM matches `programId`; DEPARTMENT matches `prog.departmentId`; FACULTY matches `prog.department.facultyId`; CAMPUS matches `prog.department.faculty.campusId` |
+
+Permissions follow the `resource:action` naming convention, e.g.:
+
+```
+campus:create  campus:read  campus:update  campus:delete
+faculty:create faculty:read faculty:update faculty:delete
+department:create department:read department:update department:delete
+program:create  program:read  program:update  program:delete
+role:create  role:read  role:update  role:delete
+permission:create permission:read permission:delete
+user:read  user:assign-role
+audit:read
+```
+
 ---
 
 ## 🛠  Useful Commands
@@ -299,8 +338,8 @@ apps/api/src/
 ├── auth/
 │   ├── auth.module.ts / auth.service.ts / auth.controller.ts
 │   ├── strategies/jwt.strategy.ts
-│   ├── guards/jwt-auth.guard.ts | roles.guard.ts
-│   └── decorators/roles.decorator.ts
+│   ├── guards/jwt-auth.guard.ts | roles.guard.ts | permissions.guard.ts
+│   └── decorators/roles.decorator.ts | permissions.decorator.ts
 ├── audit/
 │   ├── audit.module.ts / audit.service.ts
 │   ├── audit.interceptor.ts      # auto-logs mutations

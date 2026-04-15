@@ -15,38 +15,45 @@ import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { AuditInterceptor } from '../audit/audit.interceptor';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @UseInterceptors(AuditInterceptor)
 @Controller('departments')
 export class DepartmentController {
   constructor(private readonly department: DepartmentService) {}
 
   @Roles('Super Admin', 'Faculty Admin', 'Department Admin')
+  @Permissions('department:create')
   @Post()
   create(@Body() dto: CreateDepartmentDto) {
     return this.department.create(dto);
   }
 
+  @Permissions('department:read')
   @Get()
   findAll(@Query('facultyId') facultyId?: string) {
     return this.department.findAll(facultyId);
   }
 
+  @Permissions('department:read')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.department.findOne(id);
   }
 
   @Roles('Super Admin', 'Faculty Admin', 'Department Admin')
+  @Permissions('department:update')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateDepartmentDto) {
     return this.department.update(id, dto);
   }
 
   @Roles('Super Admin', 'Faculty Admin')
+  @Permissions('department:delete')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.department.remove(id);
