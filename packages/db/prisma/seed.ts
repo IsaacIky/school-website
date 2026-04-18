@@ -141,28 +141,19 @@ async function main() {
     },
   });
   console.log(`✅  Admin user: ${adminUser.email}`);
-
-  // Assign Super Admin role globally
-  await prisma.userRoleAssignment.upsert({
-    where: {
-      userId_roleId_scopeType_campusId_facultyId_departmentId_programId: {
-        userId: adminUser.id,
-        roleId: adminRole.id,
-        scopeType: RoleScopeType.GLOBAL,
-        campusId: null,
-        facultyId: null,
-        departmentId: null,
-        programId: null,
-      },
-    },
-    update: {},
-    create: {
+// Assign Super Admin role (GLOBAL within the seeded campus)
+await prisma.userRoleAssignment.createMany({
+  data: [
+    {
       userId: adminUser.id,
       roleId: adminRole.id,
       scopeType: RoleScopeType.GLOBAL,
+      campusId: campus.id,
     },
-  });
-  console.log(`✅  Admin user assigned Super Admin role (global)`);
+  ],
+  skipDuplicates: true,
+});
+console.log(`✅  Admin user assigned Super Admin role (global)`);
 
   console.log('\n🎉  Seed complete!');
   if (adminPassword === 'Admin@123!') {
