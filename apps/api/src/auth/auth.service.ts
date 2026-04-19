@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -87,7 +87,10 @@ export class AuthService {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async studentRequestOtp(_studentId: string): Promise<{ message: string; maskedEmail?: string }> {
     // TODO: implement when Student model is available
-    throw new Error('Student OTP endpoint not yet implemented. Pending Student schema migration.');
+    throw new HttpException(
+      'Student OTP is not yet implemented. Pending Student schema migration.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   /**
@@ -96,7 +99,10 @@ export class AuthService {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async studentVerifyOtp(_studentId: string, _otp: string): Promise<{ message: string }> {
     // TODO: implement when Student model is available
-    throw new Error('Student OTP endpoint not yet implemented. Pending Student schema migration.');
+    throw new HttpException(
+      'Student OTP is not yet implemented. Pending Student schema migration.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   /**
@@ -112,7 +118,10 @@ export class AuthService {
     _newPassword: string,
   ): Promise<{ accessToken: string; user: object }> {
     // TODO: implement when Student model is available
-    throw new Error('Student OTP endpoint not yet implemented. Pending Student schema migration.');
+    throw new HttpException(
+      'Student OTP is not yet implemented. Pending Student schema migration.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   /**
@@ -121,7 +130,10 @@ export class AuthService {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async studentLogin(_studentId: string, _password: string): Promise<{ accessToken: string; user: object }> {
     // TODO: implement when Student model is available
-    throw new Error('Student login endpoint not yet implemented. Pending Student schema migration.');
+    throw new HttpException(
+      'Student login is not yet implemented. Pending Student schema migration.',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   async getProfile(userId: string) {

@@ -153,15 +153,19 @@ export const api = {
     }),
 
   /** Step 3: Student sets password after OTP verification */
-  studentSetPassword: (
+  studentSetPassword: async (
     studentId: string,
     otp: string,
     newPassword: string,
-  ): Promise<StudentLoginResponse> =>
-    request<StudentLoginResponse>('/auth/student/set-password', {
+  ): Promise<StudentLoginResponse> => {
+    const data = await request<StudentLoginResponse>('/auth/student/set-password', {
       method: 'POST',
       body: JSON.stringify({ studentId, otp, newPassword }),
-    }),
+    });
+    // Store the returned JWT so subsequent calls (e.g. /auth/me) are authenticated.
+    setToken(data.accessToken);
+    return data;
+  },
 
   /** Regular student login (after first-time setup) */
   studentLogin: async (studentId: string, password: string): Promise<StudentLoginResponse> => {
