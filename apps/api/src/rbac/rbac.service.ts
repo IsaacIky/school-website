@@ -79,35 +79,38 @@ export class RbacService {
     return this.prisma.permission.delete({ where: { id } });
   }
 
-  // ── User Role Assignments ─────────────────────────────────────────────────
-  async assignRoleToUser(dto: AssignRoleDto, assignedBy?: string) {
-    const scopeType = (dto.scopeType as RoleScopeType) ?? RoleScopeType.GLOBAL;
-    return this.prisma.userRoleAssignment.upsert({
-      where: {
-        userId_roleId_scopeType_campusId_facultyId_departmentId_programId: {
-          userId: dto.userId,
-          roleId: dto.roleId,
-          scopeType,
-          campusId: dto.campusId ?? null,
-          facultyId: dto.facultyId ?? null,
-          departmentId: dto.departmentId ?? null,
-          programId: dto.programId ?? null,
-        },
-      },
-      update: { assignedBy },
-      create: {
-        userId: dto.userId,
-        roleId: dto.roleId,
-        scopeType,
-        campusId: dto.campusId,
-        facultyId: dto.facultyId,
-        departmentId: dto.departmentId,
-        programId: dto.programId,
-        assignedBy,
-      },
+// ── User Role Assignments ─────────────────────────────────────────────────
+async assignRoleToUser(dto: AssignRoleDto, assignedBy?: string) {
+  const scopeType = (dto.scopeType as RoleScopeType) ?? RoleScopeType.GLOBAL;
+
+  const where = {
+    userId: dto.userId,
+    roleId: dto.roleId,
+    scopeType,
+    campusId: dto.campusId,
+    facultyId: dto.facultyId,
+    departmentId: dto.departmentId,
+    programId: dto.programId,
+  };
+
+  const existing = await this.prisma.userRoleAssignment.findFirst({
+    where,
+  });
+
+  if (existing) {
+    return this.prisma.userRoleAssignment.update({
+      where: { id: existing.id },
+      data: { assignedBy },
     });
   }
 
+  return this.prisma.userRoleAssignment.create({
+    data: {
+      ...where,
+      assignedBy,
+    },
+  });
+}
   getUserRoles(userId: string) {
     return this.prisma.userRoleAssignment.findMany({
       where: { userId },
