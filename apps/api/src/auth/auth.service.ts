@@ -10,7 +10,7 @@ export interface JwtPayload {
 
 /** Role → portal key mapping (mirrors apps/web/src/config/portals.ts) */
 const ROLE_PORTAL_MAP: Record<string, { portalKey: string; landingPath: string }> = {
-  SUPER_ADMIN: { portalKey: 'admin', landingPath: '/admin' },
+ 'Super Admin': { portalKey: 'admin', landingPath: '/admin' },
   VICE_CHANCELLOR: { portalKey: 'vc', landingPath: '/vc' },
   VC_IMPR: { portalKey: 'vc', landingPath: '/vc/impr' },
   VC_PROCUREMENT: { portalKey: 'vc', landingPath: '/vc/procurement' },
@@ -38,7 +38,7 @@ const ROLE_PORTAL_MAP: Record<string, { portalKey: string; landingPath: string }
   REGISTRY_CENTRAL_SERVICES: { portalKey: 'registry', landingPath: '/registry/central-services' },
   REGISTRY_STUDENT_AFFAIRS: { portalKey: 'registry', landingPath: '/registry/student-affairs' },
   REGISTRY_EXAMINATIONS: { portalKey: 'registry', landingPath: '/registry/examinations' },
-  STUDENT: { portalKey: 'student', landingPath: '/student' },
+ 'Student': { portalKey: 'student', landingPath: '/student' },
 };
 
 @Injectable()
