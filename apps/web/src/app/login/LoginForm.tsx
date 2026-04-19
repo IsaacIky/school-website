@@ -212,8 +212,9 @@ export function LoginForm() {
                 {studentStep === 'id' && (
                   <form onSubmit={handleStudentIdSubmit} className="space-y-5">
                     <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                      First-time login? Enter your Student ID and any password &mdash; if your account
-                      isn&apos;t set up yet, we&apos;ll send a one-time PIN to your registered email.
+                      Returning students: enter your Student ID and password. First-time login?
+                      Enter your Student ID and leave the password field blank &mdash; we&apos;ll
+                      send a one-time PIN to your registered email to set up your account.
                     </p>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -230,13 +231,13 @@ export function LoginForm() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Password
+                        Password{' '}
+                        <span className="text-gray-400 font-normal">(leave blank for first-time login)</span>
                       </label>
                       <input
                         type="password"
                         value={studentPassword}
                         onChange={(e) => setStudentPassword(e.target.value)}
-                        required
                         placeholder="••••••••"
                         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4B2E83]/30 focus:border-[#4B2E83] transition-colors"
                       />
