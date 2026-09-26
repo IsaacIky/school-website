@@ -1,7 +1,22 @@
-import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+const OTP_TTL_MS = 5 * 60 * 1000;
+/** How long after verifying a code the student has to set their password */
+const SET_PASSWORD_WINDOW_MS = 15 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const OTP_MAX_PER_HOUR = 5;
+const INVALID_OTP_MESSAGE = 'Invalid or expired code. Please request a new one.';
+
+/** Student numbers are matched case-insensitively and ignoring surrounding spaces. */
+export function normalizeStudentNumber(studentId: string): string {
+  return studentId.trim().toUpperCase();
+}
 
 export interface JwtPayload {
   sub: string;
@@ -46,11 +61,14 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly mail: MailService,
   ) {}
 
   async validateUser(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user || !user.isActive) throw new UnauthorizedException('Invalid credentials');
+    if (!user || !user.isActive || !user.passwordHash) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
@@ -72,71 +90,153 @@ export class AuthService {
     };
   }
 
-  // ── Student Auth Stubs ─────────────────────────────────────────────────────
-  // TODO: Implement once the Student model is added to the Prisma schema.
-  // Required schema additions:
-  //   model Student { studentId String @unique; email String; passwordHash String?; ... }
-  //   model StudentOtp { studentId String; otpHash String; expiresAt DateTime; used Boolean; ... }
-  // Required infrastructure: email sender (SMTP/provider) for OTP delivery.
+  // ── Student Auth ───────────────────────────────────────────────────────────
+  // Students sign in with their student number. Their User row starts with no
+  // password; they set one via an emailed OTP (first-time setup or reset).
+  // Responses never reveal whether a student number exists.
 
-  /**
-   * Step 1 – Request OTP for first-time login or forgot/reset password.
-   * Looks up the student's email from the database, generates a 6-digit OTP,
-   * stores a hashed copy (TTL 5 min), and sends it to the student's email.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async studentRequestOtp(_studentId: string): Promise<{ message: string; maskedEmail?: string }> {
-    // TODO: implement when Student model is available
-    throw new HttpException(
-      'Student OTP is not yet implemented. Pending Student schema migration.',
-      HttpStatus.NOT_IMPLEMENTED,
+  async studentRequestOtp(studentId: string): Promise<{ message: string }> {
+    const generic = {
+      message:
+        'If this student ID is registered, a verification code has been sent to the email address on file.',
+    };
+
+    const student = await this.findStudent(studentId);
+    if (!student || !student.user.isActive) return generic;
+
+    // Rate limit silently so the response looks the same as for unknown IDs.
+    const now = Date.now();
+    const recent = await this.prisma.studentOtp.findMany({
+      where: { studentId: student.id, createdAt: { gte: new Date(now - 60 * 60 * 1000) } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    if (
+      recent.length >= OTP_MAX_PER_HOUR ||
+      (recent[0] && now - recent[0].createdAt.getTime() < OTP_RESEND_COOLDOWN_MS)
+    ) {
+      return generic;
+    }
+
+    const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+    await this.prisma.$transaction([
+      // Only the newest code is ever valid.
+      this.prisma.studentOtp.updateMany({
+        where: { studentId: student.id, consumedAt: null },
+        data: { consumedAt: new Date(now) },
+      }),
+      this.prisma.studentOtp.create({
+        data: {
+          studentId: student.id,
+          codeHash: await bcrypt.hash(code, 10),
+          expiresAt: new Date(now + OTP_TTL_MS),
+        },
+      }),
+    ]);
+
+    await this.mail.send(
+      student.user.email,
+      'Your student portal verification code',
+      `Hello ${student.user.firstName},\n\n` +
+        `Your verification code is ${code}. It expires in ${OTP_TTL_MS / 60_000} minutes.\n\n` +
+        `If you did not request this, you can ignore this email.`,
     );
+    return generic;
+  }
+
+  async studentVerifyOtp(studentId: string, code: string): Promise<{ message: string }> {
+    const otp = await this.checkOtp(studentId, code);
+    if (otp.expiresAt.getTime() < Date.now()) throw new BadRequestException(INVALID_OTP_MESSAGE);
+    if (!otp.verifiedAt) {
+      await this.prisma.studentOtp.update({
+        where: { id: otp.id },
+        data: { verifiedAt: new Date() },
+      });
+    }
+    return { message: 'Code verified. You can now set your password.' };
+  }
+
+  async studentSetPassword(studentId: string, code: string, newPassword: string) {
+    const otp = await this.checkOtp(studentId, code);
+    if (!otp.verifiedAt || otp.verifiedAt.getTime() + SET_PASSWORD_WINDOW_MS < Date.now()) {
+      throw new BadRequestException(INVALID_OTP_MESSAGE);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const student = otp.student;
+    await this.prisma.$transaction(async (tx) => {
+      // Conditional update guards against the same code being used twice.
+      const consumed = await tx.studentOtp.updateMany({
+        where: { id: otp.id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+      if (consumed.count !== 1) throw new BadRequestException(INVALID_OTP_MESSAGE);
+      await tx.user.update({
+        where: { id: student.userId },
+        data: { passwordHash, emailVerified: true },
+      });
+    });
+
+    return this.issueStudentToken(student);
+  }
+
+  async studentLogin(studentId: string, password: string) {
+    const student = await this.findStudent(studentId);
+    const hash = student?.user.isActive ? student.user.passwordHash : null;
+    if (!student || !hash || !(await bcrypt.compare(password, hash))) {
+      throw new UnauthorizedException(
+        'Invalid student ID or password. First time signing in? Use "First time / Forgot password".',
+      );
+    }
+    return this.issueStudentToken(student);
+  }
+
+  private findStudent(studentId: string) {
+    return this.prisma.student.findUnique({
+      where: { studentNumber: normalizeStudentNumber(studentId) },
+      include: { user: true },
+    });
   }
 
   /**
-   * Step 2 – Verify the OTP submitted by the student (TTL 5 minutes).
+   * Load the student's current OTP and check the submitted code against it.
+   * Every check counts as an attempt; the attempt is claimed before comparing
+   * so concurrent guesses cannot exceed the limit.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async studentVerifyOtp(_studentId: string, _otp: string): Promise<{ message: string }> {
-    // TODO: implement when Student model is available
-    throw new HttpException(
-      'Student OTP is not yet implemented. Pending Student schema migration.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+  private async checkOtp(studentId: string, code: string) {
+    const student = await this.findStudent(studentId);
+    const otp = student
+      ? await this.prisma.studentOtp.findFirst({
+          where: { studentId: student.id, consumedAt: null },
+          orderBy: { createdAt: 'desc' },
+        })
+      : null;
+    if (!student || !otp) throw new BadRequestException(INVALID_OTP_MESSAGE);
+
+    const claimed = await this.prisma.studentOtp.updateMany({
+      where: { id: otp.id, attempts: { lt: OTP_MAX_ATTEMPTS } },
+      data: { attempts: { increment: 1 } },
+    });
+    if (claimed.count !== 1 || !(await bcrypt.compare(code, otp.codeHash))) {
+      throw new BadRequestException(INVALID_OTP_MESSAGE);
+    }
+    return { ...otp, student };
   }
 
-  /**
-   * Step 3 – Set/reset password after successful OTP verification.
-   * Returns a JWT on success so the student is immediately logged in.
-   */
-  async studentSetPassword(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _studentId: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _otp: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _newPassword: string,
-  ): Promise<{ accessToken: string; user: object }> {
-    // TODO: implement when Student model is available
-    throw new HttpException(
-      'Student OTP is not yet implemented. Pending Student schema migration.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  /**
-   * Regular student login with studentId + password (after first-time setup).
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async studentLogin(
-    _studentId: string,
-    _password: string,
-  ): Promise<{ accessToken: string; user: object }> {
-    // TODO: implement when Student model is available
-    throw new HttpException(
-      'Student login is not yet implemented. Pending Student schema migration.',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+  private issueStudentToken(student: {
+    studentNumber: string;
+    user: { id: string; email: string; firstName: string; lastName: string };
+  }) {
+    const payload: JwtPayload = { sub: student.user.id, email: student.user.email };
+    return {
+      accessToken: this.jwt.sign(payload),
+      user: {
+        id: student.user.id,
+        studentId: student.studentNumber,
+        firstName: student.user.firstName,
+        lastName: student.user.lastName,
+      },
+    };
   }
 
   async getProfile(userId: string) {

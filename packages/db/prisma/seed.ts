@@ -67,7 +67,16 @@ async function main() {
   console.log(`✅  Program: ${program.name}`);
 
   // ── Permissions ──────────────────────────────────────────────────────────────
-  const resources = ['campus', 'faculty', 'department', 'program', 'user', 'role', 'permission', 'audit_log'];
+  const resources = [
+    'campus',
+    'faculty',
+    'department',
+    'program',
+    'user',
+    'role',
+    'permission',
+    'audit_log',
+  ];
   const actions = ['create', 'read', 'update', 'delete'];
 
   const permissionData = resources.flatMap((resource) =>
@@ -141,24 +150,62 @@ async function main() {
     },
   });
   console.log(`✅  Admin user: ${adminUser.email}`);
-// Assign Super Admin role (GLOBAL within the seeded campus)
-await prisma.userRoleAssignment.createMany({
-  data: [
-    {
-      userId: adminUser.id,
-      roleId: adminRole.id,
-      scopeType: RoleScopeType.GLOBAL,
-      campusId: campus.id,
+  // Assign Super Admin role (GLOBAL within the seeded campus)
+  await prisma.userRoleAssignment.createMany({
+    data: [
+      {
+        userId: adminUser.id,
+        roleId: adminRole.id,
+        scopeType: RoleScopeType.GLOBAL,
+        campusId: campus.id,
+      },
+    ],
+    skipDuplicates: true,
+  });
+  console.log(`✅  Admin user assigned Super Admin role (global)`);
+
+  // ── Test Student ─────────────────────────────────────────────────────────────
+  // No password: sign in via "First time / Forgot password" to receive an OTP
+  // (printed to the API log when SMTP_HOST is not set).
+  const studentNumber = process.env.SEED_STUDENT_NUMBER ?? 'S2024001';
+  const studentEmail = process.env.SEED_STUDENT_EMAIL ?? 'student@university.ac.zw';
+  const studentRole = await prisma.role.findUniqueOrThrow({ where: { name: 'Student' } });
+  const studentUser = await prisma.user.upsert({
+    where: { email: studentEmail },
+    update: {},
+    create: {
+      email: studentEmail,
+      firstName: 'Test',
+      lastName: 'Student',
+      student: {
+        create: {
+          studentNumber: studentNumber.trim().toUpperCase(),
+          enrollmentYear: 2024,
+          campusId: campus.id,
+          programId: program.id,
+        },
+      },
     },
-  ],
-  skipDuplicates: true,
-});
-console.log(`✅  Admin user assigned Super Admin role (global)`);
+  });
+  await prisma.userRoleAssignment.createMany({
+    data: [
+      {
+        userId: studentUser.id,
+        roleId: studentRole.id,
+        scopeType: RoleScopeType.PROGRAM,
+        programId: program.id,
+      },
+    ],
+    skipDuplicates: true,
+  });
+  console.log(`✅  Test student: ${studentNumber} (${studentEmail})`);
 
   console.log('\n🎉  Seed complete!');
   if (adminPassword === 'Admin@123!') {
     console.log(`\n⚠️   Default admin credentials: ${adminEmail} / ${adminPassword}`);
-    console.log('    Change this in production via SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD env vars.\n');
+    console.log(
+      '    Change this in production via SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD env vars.\n',
+    );
   }
 }
 
