@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateRoleDto,
@@ -79,38 +79,38 @@ export class RbacService {
     return this.prisma.permission.delete({ where: { id } });
   }
 
-// ── User Role Assignments ─────────────────────────────────────────────────
-async assignRoleToUser(dto: AssignRoleDto, assignedBy?: string) {
-  const scopeType = (dto.scopeType as RoleScopeType) ?? RoleScopeType.GLOBAL;
+  // ── User Role Assignments ─────────────────────────────────────────────────
+  async assignRoleToUser(dto: AssignRoleDto, assignedBy?: string) {
+    const scopeType = (dto.scopeType as RoleScopeType) ?? RoleScopeType.GLOBAL;
 
-  const where = {
-    userId: dto.userId,
-    roleId: dto.roleId,
-    scopeType,
-    campusId: dto.campusId,
-    facultyId: dto.facultyId,
-    departmentId: dto.departmentId,
-    programId: dto.programId,
-  };
+    const where = {
+      userId: dto.userId,
+      roleId: dto.roleId,
+      scopeType,
+      campusId: dto.campusId,
+      facultyId: dto.facultyId,
+      departmentId: dto.departmentId,
+      programId: dto.programId,
+    };
 
-  const existing = await this.prisma.userRoleAssignment.findFirst({
-    where,
-  });
+    const existing = await this.prisma.userRoleAssignment.findFirst({
+      where,
+    });
 
-  if (existing) {
-    return this.prisma.userRoleAssignment.update({
-      where: { id: existing.id },
-      data: { assignedBy },
+    if (existing) {
+      return this.prisma.userRoleAssignment.update({
+        where: { id: existing.id },
+        data: { assignedBy },
+      });
+    }
+
+    return this.prisma.userRoleAssignment.create({
+      data: {
+        ...where,
+        assignedBy,
+      },
     });
   }
-
-  return this.prisma.userRoleAssignment.create({
-    data: {
-      ...where,
-      assignedBy,
-    },
-  });
-}
   getUserRoles(userId: string) {
     return this.prisma.userRoleAssignment.findMany({
       where: { userId },

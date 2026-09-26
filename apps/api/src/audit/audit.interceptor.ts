@@ -1,10 +1,4 @@
-import {
-  CallHandler,
-  ExecutionContext,
-  Injectable,
-  Logger,
-  NestInterceptor,
-} from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { Observable, tap } from 'rxjs';
 import { AuditService } from './audit.service';
 
@@ -26,7 +20,7 @@ export class AuditInterceptor implements NestInterceptor {
 
   constructor(private readonly audit: AuditService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest();
     const { method, url, user, ip, headers } = req;
 
@@ -50,7 +44,10 @@ export class AuditInterceptor implements NestInterceptor {
           })
           .catch((err) => {
             // Log audit failures so they surface in monitoring — do not swallow them silently.
-            this.logger.error(`Failed to write audit log for ${method} ${url}: ${err.message}`, err.stack);
+            this.logger.error(
+              `Failed to write audit log for ${method} ${url}: ${err.message}`,
+              err.stack,
+            );
           });
       }),
     );
