@@ -10,7 +10,7 @@ export interface JwtPayload {
 
 /** Role → portal key mapping (mirrors apps/web/src/config/portals.ts) */
 const ROLE_PORTAL_MAP: Record<string, { portalKey: string; landingPath: string }> = {
- 'Super Admin': { portalKey: 'admin', landingPath: '/admin' },
+  'Super Admin': { portalKey: 'admin', landingPath: '/admin' },
   VICE_CHANCELLOR: { portalKey: 'vc', landingPath: '/vc' },
   VC_IMPR: { portalKey: 'vc', landingPath: '/vc/impr' },
   VC_PROCUREMENT: { portalKey: 'vc', landingPath: '/vc/procurement' },
@@ -38,7 +38,7 @@ const ROLE_PORTAL_MAP: Record<string, { portalKey: string; landingPath: string }
   REGISTRY_CENTRAL_SERVICES: { portalKey: 'registry', landingPath: '/registry/central-services' },
   REGISTRY_STUDENT_AFFAIRS: { portalKey: 'registry', landingPath: '/registry/student-affairs' },
   REGISTRY_EXAMINATIONS: { portalKey: 'registry', landingPath: '/registry/examinations' },
- 'Student': { portalKey: 'student', landingPath: '/student' },
+  Student: { portalKey: 'student', landingPath: '/student' },
 };
 
 @Injectable()
@@ -128,7 +128,10 @@ export class AuthService {
    * Regular student login with studentId + password (after first-time setup).
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async studentLogin(_studentId: string, _password: string): Promise<{ accessToken: string; user: object }> {
+  async studentLogin(
+    _studentId: string,
+    _password: string,
+  ): Promise<{ accessToken: string; user: object }> {
     // TODO: implement when Student model is available
     throw new HttpException(
       'Student login is not yet implemented. Pending Student schema migration.',
@@ -166,9 +169,11 @@ export class AuthService {
       }
     }
 
+    // null means none of the user's roles map to a portal; the client must
+    // treat that as "no portal assigned" rather than redirecting anywhere.
     return {
       ...profile,
-      landingPath: landingPath ?? '/login',
+      landingPath: landingPath ?? null,
       portalOptions: Array.from(portalKeys),
     };
   }

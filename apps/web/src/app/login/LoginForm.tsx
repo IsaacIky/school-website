@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { getLandingPathForRole } from '@/config/portals';
+import { resolveLandingPath } from '@/config/portals';
 import { siteConfig } from '@/config/site';
 
 type Tab = 'staff' | 'student';
@@ -17,6 +17,9 @@ type Tab = 'staff' | 'student';
  */
 type StudentMode = 'login' | 'otp-reset';
 type OtpStep = 'request' | 'verify' | 'set-password';
+
+const NO_PORTAL_MESSAGE =
+  'Your account has no portal assigned. Please contact the system administrator.';
 
 export function LoginForm() {
   const router = useRouter();
@@ -68,9 +71,12 @@ export function LoginForm() {
       // Use landingPath from /auth/me as the primary source; fall back to local mapping.
       const profile = await api.getMe();
       const roles = profile.roleAssignments.map((ra) => ra.role.name);
-      const landing =
-        profile.landingPath ??
-        (roles.length > 0 ? getLandingPathForRole(roles[0]) : '/admin');
+      const landing = resolveLandingPath(profile.landingPath, roles);
+      if (!landing) {
+        api.logout();
+        setStaffError(NO_PORTAL_MESSAGE);
+        return;
+      }
       router.push(redirect ?? landing);
     } catch (err: unknown) {
       setStaffError(err instanceof Error ? err.message : 'Login failed');
@@ -222,9 +228,7 @@ export function LoginForm() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Password
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
                   <input
                     type="password"
                     value={staffPassword}
@@ -360,8 +364,8 @@ export function LoginForm() {
                           <div className="text-3xl mb-2">📧</div>
                           <p className="text-sm text-gray-600">
                             We sent a one-time PIN to{' '}
-                            <strong>{maskedEmail || 'your registered email'}</strong>. It expires
-                            in 5 minutes.
+                            <strong>{maskedEmail || 'your registered email'}</strong>. It expires in
+                            5 minutes.
                           </p>
                         </div>
                         <div>

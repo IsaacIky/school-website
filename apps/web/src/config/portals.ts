@@ -186,9 +186,27 @@ export function getPortalByKey(key: string): PortalDefinition | undefined {
 /**
  * Get landing path for a given role name (client-side fallback).
  * The API /auth/me should be the primary source.
+ * Returns null when the role has no portal mapping.
  */
-export function getLandingPathForRole(roleName: string): string {
-  return rolePortalMap.find((r) => r.roleName === roleName)?.landingPath ?? '/login';
+export function getLandingPathForRole(roleName: string): string | null {
+  return rolePortalMap.find((r) => r.roleName === roleName)?.landingPath ?? null;
+}
+
+/**
+ * Resolve where a user should land after login: the API-provided landingPath
+ * first, otherwise the first of the user's roles that maps to a portal.
+ * Returns null when no role maps to a portal.
+ */
+export function resolveLandingPath(
+  apiLandingPath: string | null | undefined,
+  roleNames: string[],
+): string | null {
+  if (apiLandingPath) return apiLandingPath;
+  for (const role of roleNames) {
+    const path = getLandingPathForRole(role);
+    if (path) return path;
+  }
+  return null;
 }
 
 /**

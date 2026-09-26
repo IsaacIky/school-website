@@ -1,22 +1,15 @@
 'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, type UserProfile } from '@/lib/api';
-import { getAccessiblePortalKeys, getLandingPathForRole } from '@/config/portals';
+import { getAccessiblePortalKeys, resolveLandingPath } from '@/config/portals';
 
 interface AuthContextValue {
   user: UserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  /** Computed landing path after login */
-  landingPath: string;
+  /** Computed landing path after login; null if the user has no portal assigned */
+  landingPath: string | null;
   /** All portal keys this user can switch to */
   accessiblePortalKeys: string[];
   /** Refresh user profile from API */
@@ -53,10 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const landingPath = useMemo(() => {
     if (!user) return '/login';
-    if (user.landingPath) return user.landingPath;
     const roles = user.roleAssignments.map((ra) => ra.role.name);
-    if (roles.length === 0) return '/login';
-    return getLandingPathForRole(roles[0]);
+    return resolveLandingPath(user.landingPath, roles);
   }, [user]);
 
   const accessiblePortalKeys = useMemo(() => {

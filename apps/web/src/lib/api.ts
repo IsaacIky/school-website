@@ -59,8 +59,8 @@ export interface UserProfile {
   isActive: boolean;
   /** Roles assigned to this user */
   roleAssignments: { role: { name: string; description?: string } }[];
-  /** Computed primary landing path (returned by API) */
-  landingPath?: string;
+  /** Computed primary landing path (returned by API); null if no role maps to a portal */
+  landingPath?: string | null;
   /** All portal keys this user can access */
   portalOptions?: string[];
 }
@@ -143,10 +143,7 @@ export const api = {
     }),
 
   /** Step 2: Student verifies OTP (5-minute TTL) */
-  studentVerifyOtp: (
-    studentId: string,
-    otp: string,
-  ): Promise<StudentOtpVerifyResponse> =>
+  studentVerifyOtp: (studentId: string, otp: string): Promise<StudentOtpVerifyResponse> =>
     request<StudentOtpVerifyResponse>('/auth/student/verify-otp', {
       method: 'POST',
       body: JSON.stringify({ studentId, otp }),
