@@ -22,4 +22,11 @@ module.exports = {
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
     ],
   },
+  overrides: [
+    {
+      // Test fakes stand in for loosely-typed Prisma calls.
+      files: ['*.spec.ts'],
+      rules: { '@typescript-eslint/no-explicit-any': 'off' },
+    },
+  ],
 };
