@@ -77,7 +77,7 @@ export interface StaffLoginResponse {
 
 export interface StudentOtpRequestResponse {
   message: string;
-  /** Masked email address for display */
+  /** Masked email address for display (not currently returned, to avoid revealing which IDs exist) */
   maskedEmail?: string;
 }
 
@@ -128,8 +128,7 @@ export const api = {
   },
 
   // ── Student Auth ────────────────────────────────────────────────────────
-  // TODO: These endpoints need to be implemented in apps/api when student
-  // OTP flow is built. The API should:
+  // Implemented in apps/api/src/auth (auth.controller.ts):
   //   POST /auth/student/request-otp  { studentId } → looks up email in DB, sends OTP
   //   POST /auth/student/verify-otp   { studentId, otp } → validates OTP (TTL 5 min)
   //   POST /auth/student/set-password { studentId, otp, newPassword } → sets password after OTP

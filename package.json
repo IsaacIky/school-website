@@ -11,6 +11,7 @@
     "dev": "concurrently \"pnpm --filter @school/web dev\" \"pnpm --filter @school/api start:dev\"",
     "build": "pnpm --filter @school/db build && pnpm --filter @school/api build && pnpm --filter @school/web build",
     "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\" --ignore-path .gitignore",
     "db:generate": "pnpm --filter @school/db db:generate",
     "db:migrate": "pnpm --filter @school/db db:migrate",

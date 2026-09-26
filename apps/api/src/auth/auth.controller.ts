@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 class LoginDto {
   @IsEmail()
@@ -13,9 +13,6 @@ class LoginDto {
 }
 
 // ── Student auth DTOs ────────────────────────────────────────────────────────
-// TODO: These endpoints require a Student model in the Prisma schema.
-// Once the Student entity is added to packages/db/prisma/schema.prisma,
-// implement the corresponding service methods in auth.service.ts.
 
 class StudentRequestOtpDto {
   @IsString()
@@ -28,8 +25,7 @@ class StudentVerifyOtpDto {
   @IsNotEmpty()
   studentId: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @Matches(/^\d{6}$/, { message: 'otp must be a 6-digit code' })
   otp: string;
 }
 
@@ -38,12 +34,12 @@ class StudentSetPasswordDto {
   @IsNotEmpty()
   studentId: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @Matches(/^\d{6}$/, { message: 'otp must be a 6-digit code' })
   otp: string;
 
   @IsString()
   @MinLength(8)
+  @MaxLength(72) // bcrypt ignores bytes beyond 72
   newPassword: string;
 }
 
