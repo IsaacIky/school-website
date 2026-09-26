@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { resolveLandingPath } from '@/config/portals';
 import { siteConfig } from '@/config/site';
+import { safeRedirectPath } from '@/lib/redirect';
 
 type Tab = 'staff' | 'student';
 
@@ -24,7 +25,7 @@ const NO_PORTAL_MESSAGE =
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect');
+  const redirect = safeRedirectPath(searchParams.get('redirect'));
 
   const [tab, setTab] = useState<Tab>('staff');
 
