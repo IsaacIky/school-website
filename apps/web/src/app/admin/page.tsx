@@ -10,39 +10,20 @@ const cards = [
 export default function AdminDashboard() {
   return (
     <div>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-        Admin Dashboard
-      </h1>
-      <p style={{ color: '#6b7280', marginBottom: '2rem' }}>
-        Manage your university structure from here.
-      </p>
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-          gap: '1.25rem',
-        }}
-      >
+      <h1 className="text-3xl font-bold text-[#0B1020] mb-2">Admin Dashboard</h1>
+      <p className="text-gray-500 mb-8">Manage your university structure from here.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {cards.map(({ href, title, icon, desc }) => (
           <Link
             key={href}
             href={href}
-            style={{
-              background: '#fff',
-              borderRadius: '0.75rem',
-              padding: '1.5rem',
-              border: '1px solid #e2e8f0',
-              textDecoration: 'none',
-              color: 'inherit',
-              transition: 'box-shadow 0.2s',
-            }}
+            className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-md hover:border-[#4B2E83]/20 transition-all group no-underline"
           >
-            <div style={{ fontSize: '2rem' }}>{icon}</div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0.5rem 0 0.25rem' }}>
+            <div className="text-3xl mb-3">{icon}</div>
+            <h2 className="text-base font-semibold text-[#0B1020] group-hover:text-[#4B2E83] mb-1 transition-colors">
               {title}
             </h2>
-            <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>{desc}</p>
+            <p className="text-sm text-gray-500">{desc}</p>
           </Link>
         ))}
       </div>

@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-purple: #4B2E83;
+    --brand-yellow: #F2C200;
+  }
+
+  body {
+    @apply bg-[#F7F8FC] text-gray-900;
+  }
+}
